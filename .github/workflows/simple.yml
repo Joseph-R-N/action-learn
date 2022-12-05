@@ -10,7 +10,6 @@ jobs:
         run: echo "Hello World"
       - name: multiline commands or script
         run: |
-          sleep 30
           node -v
           npm -v
       -  name: python Commands
@@ -18,4 +17,13 @@ jobs:
            import platform
            print (platform.processor())
          shell: python
+  
+  run-windows-command:
+    runs-on: windows-latest
+    steps:
+      - name: Directory PowerShell
+        run: Get-Location
+      - name: Directory Bash
+        run: pwd
+        shell: bash
 
