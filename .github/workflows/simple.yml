@@ -1,6 +1,6 @@
 name: Shell Commands
 
-on: push
+on: [push]
 
 jobs:
   run-shell-command:
@@ -13,3 +13,9 @@ jobs:
           sleep 30
           node -v
           npm -v
+      -  name: python Commands
+         run: |
+           import platform
+           print (platform.processor())
+         shell: python
+
