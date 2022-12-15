@@ -14,18 +14,21 @@ jobs:
             echo $GITHUB_SHA
             echo $GITHUB_REPOSITORY
             echo $GITHUB_WORKSPACE
-            echo "${{ github.token }}"
+            
         - name: Checkout
           uses: actions/checkout@v1
+          
         - name: List Directory
           run: |
             pwd
             ls -lrt
             ls -alrt
+            
         - name: Simple JS Actions
           id: greet
           uses: actions/hello-world-javascript-action@v1.1
           with:
             who-to-greet: Joseph
+            
         - name: Log Greeting Time
           run: echo "${{ steps.greet.outputs.time }}"
