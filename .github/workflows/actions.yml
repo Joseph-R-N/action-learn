@@ -11,6 +11,13 @@ jobs:
             pwd
             ls -lrt
             ls -alrt
+        - name: Checkout
+          uses: actions/checkout@v1
+        - name: List Directory
+          run: |
+            pwd
+            ls -lrt
+            ls -alrt
         - name: Simple JS Actions
           id: greet
           uses: actions/hello-world-javascript-action@v1.1
