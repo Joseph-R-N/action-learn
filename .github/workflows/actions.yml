@@ -11,6 +11,10 @@ jobs:
             pwd
             ls -lrt
             ls -alrt
+            echo $GITHUB_SHA
+            echo $GITHUB_REPOSITORY
+            echo $GITHUB_WORKSPACE
+            echo "{{ github.token }}"
         - name: Checkout
           uses: actions/checkout@v1
         - name: List Directory
