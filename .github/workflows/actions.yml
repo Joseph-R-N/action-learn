@@ -1,6 +1,8 @@
 name: Actions Workflow
 
-on: [push , pull_request]
+on:
+  repository_dispatch:
+    types: [build]
 
 jobs:
   run-github-actions:
@@ -11,24 +13,19 @@ jobs:
             pwd
             ls -lrt
             ls -alrt
-            echo $GITHUB_SHA
-            echo $GITHUB_REPOSITORY
-            echo $GITHUB_WORKSPACE
-            
         - name: Checkout
           uses: actions/checkout@v1
-          
-        - name: List Directory
+        
+        - name: List Directory after Checkout
           run: |
             pwd
             ls -lrt
             ls -alrt
-            
+
         - name: Simple JS Actions
           id: greet
-          uses: actions/hello-world-javascript-action@v1.1
+          uses: actions/hello-world-javascript-action@v1
           with:
             who-to-greet: Joseph
-            
         - name: Log Greeting Time
           run: echo "${{ steps.greet.outputs.time }}"
