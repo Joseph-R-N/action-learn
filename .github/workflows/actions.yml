@@ -1,16 +1,6 @@
 name: Actions Workflow
 
-on:
-  push:
-    branches:
-      - master
-      - 'feature/*' # pattern check on branches, any branch that startes with feature/xxx. One word after feature/
-                    # does not match feature/feat/123
-      - '!feature/featC' # will ignore the branch as it starts with !
-    tags:
-      - v1.*
-    paths-ignore:
-      - 'docs/**' # will not run when anything is pushed inside folder docs 
+on: [workflow_dispatch]
 
 jobs:
   run-github-actions:
