@@ -1,16 +1,21 @@
 name: Actions Workflow
 
 on:
-  repository_dispatch:
-    types: [build]
+  push:
+    branches:
+      - master
+      - 'feature/*' # pattern check on branches, any branch that startes with feature/xxx. One word after feature/
+                    # does not match feature/feat/123
+      - '!feature/featC' # will ignore the branch as it starts with !
+    tags:
+      - v1.*
+    paths-ignore:
+      - 'docs/**' # will not run when anything is pushed inside folder docs 
 
 jobs:
   run-github-actions:
       runs-on: ubuntu-latest
       steps:
-        - name: payload
-          run: echo ${{ github.event.client_payload.env}}
-          
         - name: List Directory
           run: |
             pwd
