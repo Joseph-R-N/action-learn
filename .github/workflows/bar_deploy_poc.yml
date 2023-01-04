@@ -11,7 +11,7 @@ on:
         required: true
         description: 'for PROD Enter PR'
         default: 'PR'
-        
+
 jobs:
   Checkout_Stage:
     runs-on: ubuntu-latest
@@ -23,6 +23,8 @@ jobs:
       - name: Set Env
         run: |
           echo ${{ github.event.inputs.artifact_name }}
-          echo "flow_name=$(echo ${{ github.event.inputs.artifact_name }} | cut -d. -f1)"
+          echo "flow_name=$(echo ${{ github.event.inputs.artifact_name }} | cut -d. -f1)" >> $GITHUB_ENV
       - name: Display Var
-        run: echo $flow_name
+        run: |
+          echo $flow_name
+          echo ${{ env.flow_name }}
