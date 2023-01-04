@@ -54,7 +54,7 @@ jobs:
       - name: Download_Bar_file_from_Artifactory
         run: |
           cd /tmp
-          curl -ks --request GET https://artifactory.albertsons.com:443/artifactory/mq01-publisher-bar/esed/${{ github.event.inputs.artifact_name }}.zip -O
+          curl -ks --request GET https://Xxxxxxxxx//${{ github.event.inputs.artifact_name }}.zip -O
       - name: Set Env
         run: |
           echo ${{ github.event.inputs.artifact_name }}
