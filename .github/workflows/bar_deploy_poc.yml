@@ -10,7 +10,8 @@ on:
         type: string
         required: true
         description: 'for PROD Enter PR'
-      
+        default: 'PR'
+
 jobs:
   Checkout_Stage:
     runs-on: ubuntu-latest
@@ -20,8 +21,10 @@ jobs:
           echo "hostname of the VM is: $HOSTNAME"
           echo "you are running as $(whoami) User"
       - name: Set Env
-        run: echo "flow_name=$(echo $artifact_name | cut -d. -f1)"
+        run: |
+          echo ${{ github.event.inputs.artifact_name }}
+          echo "flow_name=$(echo ${{ github.event.inputs.artifact_name }} | cut -d. -f1)" >> $GITHUB_ENV
       - name: Display Var
-        run: echo $flow_name
-        
-          
+        run: |
+          echo $flow_name
+          echo ${{ env.flow_name }}

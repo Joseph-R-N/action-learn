@@ -1,0 +1,71 @@
+name: Dev_Deploy_IIB_Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      flow_name:
+        type: string
+        required: true
+        description: 'Enter the name of the flow to be Deployed'
+
+jobs:
+  Checkout_Stage:
+    runs-on: ${{ matrix.vm }}
+    strategy:
+      matrix:
+        vm: [MQ01DEV-01, MQ01DEV-02]
+    steps:
+      - name: test_echo
+        run: |
+          echo "hostname of the VM is: $HOSTNAME"
+          echo "you are running as $(whoami) User"
+  
+  Download_Artifact:
+    needs: [Checkout_Stage]
+    runs-on: ${{ matrix.vm }}
+    strategy:
+      matrix:
+        vm: [MQ01DEV-01, MQ01DEV-02]
+    steps:
+      - name: Download_package
+        run: |
+          cd /tmp
+          echo "you are running as $(whoami) User"
+          curl -ks --request GET https://artifactory.albertsons.com:443/artifactory/mq01-publisher-bar/esed/${{ github.event.inputs.flow_name }}.zip -O
+          touch deployfile_tmp.txt
+          echo ${{ github.event.inputs.flow_name }} > /tmp/deployfile_tmp.txt
+          ls -lrt ./${{ github.event.inputs.flow_name }}*
+  
+  Deploy_Artifact:
+    needs: [Download_Artifact]
+    runs-on: ${{ matrix.vm }}
+    strategy:
+      matrix:
+        vm: [MQ01DEV-01, MQ01DEV-02]
+    steps:
+      - name: Deploy_Package_script
+        run: |
+          echo "you are running as $(whoami) User"
+          source /home/mqsi/.bash_profile
+          cd /tmp
+          ls -lrt ./${{ github.event.inputs.flow_name }}*
+          sh -x /var/mqsi/admin/IIBdeploy.sh
+
+  Display_Run_Status:
+    needs: [Deploy_Artifact]
+    runs-on: ${{ matrix.vm }}
+    strategy:
+      matrix:
+        vm: [MQ01DEV-01, MQ01DEV-02]
+    steps:
+      - name: Output_Status
+        run: |
+          echo "you are running as $(whoami) User"
+          cd /tmp/output
+          echo "The Flow deployment status is:"
+          tail -1 ./runstatus.$(date +%F).log
+      - name: Cleanup
+        run: |
+          cd /tmp
+          rm -f ./${{ github.event.inputs.flow_name }}*.zip
+          rm -f ./deployfile_tmp.txt

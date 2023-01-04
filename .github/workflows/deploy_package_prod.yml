@@ -1,0 +1,183 @@
+name: deploy_barfiles_prod
+
+on:
+  workflow_call:
+     inputs:
+      artifact_name:
+        type: string
+        required: true
+        description: 'enter the Prod Artifact that needs to be deployed'
+      ENV_Type:
+        type: string
+        required: true
+        description: 'Enter Environment type to deploy, Example: PR'
+      vm1:
+        type: string
+        required: true
+      vm2:
+        type: string
+        required: true
+      vm3:
+        type: string
+        required: true
+      vm4:
+        type: string
+        required: true
+jobs:
+  Checkout_Status:
+    runs-on: ${{ matrix.vm }}
+    strategy:
+      matrix:
+        vm: ['${{ inputs.vm1 }}', '${{ inputs.vm2 }}', '${{ inputs.vm3 }}', '${{ inputs.vm4 }}']
+    steps:
+      - name: Set Env
+        run: |
+          echo ${{ github.event.inputs.artifact_name }}
+          echo "flow_name=$(echo ${{ github.event.inputs.artifact_name }} | cut -d. -f1)" >> $GITHUB_ENV
+      - name: Set EGName
+        run: |
+          echo "ex_group=$(cat /appl/spool/deploy/ESEDB/${{ env.flow_name }}.PR.deploy.properties | grep egName | cut -d= -f2)" >> $GITHUB_ENV
+      - name: Flow Status
+        run: |
+          echo "you are running as $(whoami) User"
+          source /home/mqsi/.bash_profile
+          mqsilist $IIBNODE -e ${{ env.ex_group }} | grep -i ${{ env.flow_name }}
+        
+  Download_Bar_file_from_Artifactory:
+    runs-on: ${{ matrix.vm }}
+    environment: production
+    strategy:
+      matrix:
+        vm: ['${{ inputs.vm1 }}', '${{ inputs.vm2 }}', '${{ inputs.vm3 }}', '${{ inputs.vm4 }}']
+    needs: Checkout_Status
+    steps:
+      - name: Download_Bar_file_from_Artifactory
+        run: |
+          cd /tmp
+          curl -ks --request GET https://artifactory.albertsons.com:443/artifactory/mq01-publisher-bar/esed/${{ github.event.inputs.artifact_name }}.zip -O
+      - name: Set Env
+        run: |
+          echo ${{ github.event.inputs.artifact_name }}
+          echo "flow_name=$(echo ${{ github.event.inputs.artifact_name }} | cut -d. -f1)" >> $GITHUB_ENV
+      - name: Update_Artifact_Name
+        run: |
+          cd /tmp
+          mv ${{ github.event.inputs.artifact_name }}.zip ${{ env.flow_name }}.zip
+    
+  Stop_Undeploy_Flow:
+    runs-on: ${{ matrix.vm }}
+    strategy:
+      matrix:
+        vm: ['${{ inputs.vm1 }}', '${{ inputs.vm2 }}', '${{ inputs.vm3 }}', '${{ inputs.vm4 }}']
+    needs: Download_Bar_file_from_Artifactory
+    steps:
+      - name: Set Env
+        run: |
+          echo "flow_name=$(echo ${{ github.event.inputs.artifact_name }} | cut -d. -f1)" >> $GITHUB_ENV
+      - name: Set EGName
+        run: |
+          echo "ex_group=$(cat /appl/spool/deploy/ESEDB/${{ env.flow_name }}.PR.deploy.properties | grep egName | cut -d= -f2)" >> $GITHUB_ENV
+      - name: Stop Flow
+        run: |
+          source /home/mqsi/.bash_profile
+          mqsistopmsgflow $IIBNODE -e ${{ env.ex_group }} -k ${{ env.flow_name }}
+          mqsilist $IIBNODE -e ${{ env.ex_group }} | grep -i ${{ env.flow_name }}
+      - name: Undeploy Flow
+        run: |
+          source /home/mqsi/.bash_profile
+          mqsideploy $IIBNODE -e ${{ env.ex_group }} -d ${{ env.flow_name }}
+          mqsilist $IIBNODE -e ${{ env.ex_group }} | grep -i ${{ env.flow_name }}
+  
+  Backup_current_properties_file:
+    runs-on: ${{ matrix.vm }}
+    strategy:
+      matrix:
+        vm: ['${{ inputs.vm1 }}', '${{ inputs.vm2 }}', '${{ inputs.vm3 }}', '${{ inputs.vm4 }}']
+    needs: Stop_Undeploy_Flow
+    steps:
+      - name: Set Env
+        run: |
+          echo ${{ github.event.inputs.artifact_name }}
+          echo "flow_name=$(echo ${{ github.event.inputs.artifact_name }} | cut -d. -f1)" >> $GITHUB_ENV
+      - name: extract_date
+        id: date
+        run: echo "::set-output name=date::$(date +'%m%d%Y_%H%M%S')" 
+      - name: Backup_current_properties_file
+        run: |
+          date=$(echo ${{ steps.date.outputs.date }})
+          echo "${date}"
+          cd /appl/spool/deploy
+          if [ $(ls -lrt ESED*/${{ env.flow_name }}* | wc -l) != 0 ]
+          then
+            echo "Flow ${{ env.flow_name }} already exist."
+            zip -r ${{ env.flow_name }}_backup_${date}.zip ESED*/${{ env.flow_name }}*
+          else
+            echo "This Flow - ${{ env.flow_name }} is a new deployment"
+          fi
+
+  Copy_Package_Extract_dos2unix:
+    runs-on: ${{ matrix.vm }}
+    strategy:
+      matrix:
+        vm: ['${{ inputs.vm1 }}', '${{ inputs.vm2 }}', '${{ inputs.vm3 }}', '${{ inputs.vm4 }}']
+    needs: Backup_current_properties_file
+    steps:
+      - name: Set Env
+        run: |
+          echo ${{ github.event.inputs.artifact_name }}
+          echo "flow_name=$(echo ${{ github.event.inputs.artifact_name }} | cut -d. -f1)" >> $GITHUB_ENV
+      - name: Copy_Bar_File_and_Extract
+        run: |
+          cd /appl/spool/deploy/
+          cp /tmp/${{ env.flow_name }}.zip /appl/spool/deploy/
+          ls -ltra
+          unzip -o ${{ env.flow_name }}.zip
+      - name: dos2unix_convert
+        run: |
+          cd /appl/spool/deploy/
+          dos2unix ESED*/${{ env.flow_name }}*properties
+
+  Run_Deployment_script:
+    runs-on: ${{ matrix.vm }}
+    strategy:
+      matrix:
+        vm: ['${{ inputs.vm1 }}', '${{ inputs.vm2 }}', '${{ inputs.vm3 }}', '${{ inputs.vm4 }}']
+    needs: Copy_Package_Extract_dos2unix
+    steps:
+      - name: Set Env
+        run: |
+          echo ${{ github.event.inputs.artifact_name }}
+          echo "flow_name=$(echo ${{ github.event.inputs.artifact_name }} | cut -d. -f1)" >> $GITHUB_ENV
+      - name: Run_Deployment_script
+        run: |
+          source /home/mqsi/.bash_profile
+          cd /var/mqsi/admin
+          ls -ltra
+          ./deployBar_IIB10.ksh -p /appl/spool/deploy/ESEDB/${{ env.flow_name }}.${{ github.event.inputs.ENV_Type }}.deploy.properties
+      - name: Output_Status
+        run: |
+          source /home/mqsi/.bash_profile
+          ex_group=`cat /appl/spool/deploy/ESEDB/${{ env.flow_name }}.${{ github.event.inputs.ENV_Type }}.deploy.properties | grep egName | cut -d'=' -f2`
+          echo "mqsilist $IIBNODE -e ${ex_group} | grep -i ${{ env.flow_name }}"
+          mqsilist $IIBNODE -e ${ex_group} | grep -i ${{ env.flow_name }}
+
+  clean_workspace:
+    name: Clean workspace
+    runs-on: ${{ matrix.vm }}
+    strategy:
+      matrix:
+        vm: ['${{ inputs.vm1 }}', '${{ inputs.vm2 }}', '${{ inputs.vm3 }}', '${{ inputs.vm4 }}']
+    needs: Run_Deployment_script
+    steps:
+      - name: Set Env
+        run: |
+          echo "flow_name=$(echo ${{ github.event.inputs.artifact_name }} | cut -d. -f1)" >> $GITHUB_ENV
+      - name: clean workspace
+        uses: albertsons/esgh-workspace-clean@v2-bash
+      - name: zip file cleanup
+        run: |
+          cd /tmp
+          rm -f ./${{ env.flow_name }}*.zip
+      - name: Printing workspace cleaned message
+        run: |
+          echo "Workspace cleared for run ID ${{ github.run_number }}"
